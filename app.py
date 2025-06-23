@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torchvision.transforms as transforms
 from PIL import Image
 import numpy as np
+import random
 import matplotlib.pyplot as plt
 from torchvision.datasets import CIFAR10
 
@@ -211,19 +212,65 @@ def main():
                 class_name = CIFAR10_CLASSES[idx]
                 prob = probabilities[idx].item()
                 st.write(f"{i+1}. **{class_name}**: {prob:.2%}")
-    
-    # with col2:
-    #     st.header("🎲 Try Sample Images")
-        
-    #     if st.button("Load CIFAR-10 Samples"):
-    #         with st.spinner("Loading sample images..."):
-    #             samples = load_sample_images()
-            
-    #         if samples:
-    #             st.session_state.samples = samples
-    #             st.success(f"Loaded {len(samples)} sample images!")
-    #         else:
-    #             st.warning("Could not load sample images. Try uploading your own!")
+    #random generation of image
+    with col2:
+     st.header("🎲 Try Sample Images")
+
+    if st.button("Load Random Image"):
+        image_folder = "image"  # Define it here!
+        if not os.path.exists(image_folder):
+            st.warning("The 'image' folder does not exist. Please create it and add some images.")
+        else:
+            image_files = [
+                f for f in os.listdir(image_folder)
+                if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp'))
+            ]
+            if image_files:
+                random_image_file = random.choice(image_files)
+                image_path = os.path.join(image_folder, random_image_file)
+                image = Image.open(image_path)
+                st.image(image, caption=f"Random Image: {random_image_file}")
+
+                # --- Prediction for random image ---
+                with st.spinner("Classifying random image..."):
+                    image_tensor = preprocess_image(image)
+                    predicted_class, confidence, probabilities = predict_image(
+                        st.session_state.model, image_tensor
+                    )
+
+                predicted_label = CIFAR10_CLASSES[predicted_class]
+                st.success(f"**Predicted Class**: {predicted_label}")
+                st.info(f"**Confidence**: {confidence:.2%}")
+
+                # Probability distribution
+                st.subheader("📊 Class Probabilities")
+                prob_data = {
+                    'Class': CIFAR10_CLASSES,
+                    'Probability': [prob.item() for prob in probabilities]
+                }
+
+                fig, ax = plt.subplots(figsize=(10, 6))
+                bars = ax.bar(prob_data['Class'], prob_data['Probability'])
+                ax.set_ylabel('Probability')
+                ax.set_title('Class Probability Distribution')
+                ax.set_ylim(0, 1)
+                bars[predicted_class].set_color('red')
+                plt.xticks(rotation=45)
+                plt.tight_layout()
+                st.pyplot(fig)
+
+                # Show top 3 predictions
+                st.subheader("🏆 Top 3 Predictions")
+                top_3_indices = torch.topk(probabilities, 3).indices
+                for i, idx in enumerate(top_3_indices):
+                    class_name = CIFAR10_CLASSES[idx]
+                    prob = probabilities[idx].item()
+                    st.write(f"{i+1}. **{class_name}**: {prob:.2%}")
+
+                st.success(f"Loaded image: {random_image_file}")
+            else:
+                st.warning("No images found in the 'image' folder. Please add some images.")
+        #end of random geenration
         
         if 'samples' in st.session_state:
             sample_idx = st.selectbox(
